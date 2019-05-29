@@ -1,8 +1,7 @@
 use std::process::exit;
 
-use clap::{App, Arg, ArgMatches};
+use clap::{App, Arg};
 use log::{error, info, LevelFilter};
-use reqwest::{Client, RequestBuilder, Response, StatusCode};
 use simplelog::{CombinedLogger, Config, TermLogger};
 
 use rawcover_collector::AppConfig;
