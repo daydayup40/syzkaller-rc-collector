@@ -1,22 +1,14 @@
 use std::{fmt, fs};
-use std::fmt::Display;
 use std::io::Error;
-use std::net::{IpAddr, Ipv4Addr};
 use std::num::ParseIntError;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::exit;
-use std::sync::mpsc;
-use std::sync::mpsc::Receiver;
-use std::thread::{JoinHandle, sleep, spawn};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use chrono::format::Pad;
-use clap::{App, Arg, ArgMatches};
-use log::{error, info, LevelFilter};
-use reqwest::{Client, RequestBuilder, Response, StatusCode};
-use simplelog::{CombinedLogger, Config, TermLogger};
-use url::{OpaqueOrigin, Url};
+use log::{error, info};
+use reqwest::{Client, RequestBuilder, Response};
 use url::ParseError;
+use url::Url;
 
 pub mod collector;
 
@@ -39,7 +31,7 @@ pub struct ConfigError {
     error_type: ErrorType
 }
 
-impl Display for ConfigError {
+impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::ErrorType::*;
         match self.error_type {

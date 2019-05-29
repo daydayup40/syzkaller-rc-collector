@@ -1,6 +1,6 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use log::{error, info, warn};
+use log::error;
 use reqwest::{Client, Response};
 use select::document::Document;
 use select::predicate::{Attr, Class, Element, Name, Predicate};
