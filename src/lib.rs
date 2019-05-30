@@ -1,12 +1,11 @@
 use std::{fmt, fs};
-use std::io::Error;
+use std::io;
 use std::num::ParseIntError;
 use std::path::PathBuf;
-use std::process::exit;
 use std::time::Duration;
 
-use log::{error, info};
-use reqwest::{Client, RequestBuilder, Response};
+use log::info;
+use reqwest::{Client, Response};
 use url::ParseError;
 use url::Url;
 
@@ -23,41 +22,34 @@ pub struct AppConfig {
 pub enum ErrorType {
     UrlParseError(ParseError),
     DurationParseError(ParseIntError),
-    OutputDirError(Error),
+    OutputDirError(io::Error),
+    ConnectionError(reqwest::Error),
 }
 
-#[derive(Debug)]
-pub struct ConfigError {
-    error_type: ErrorType
-}
 
-impl fmt::Display for ConfigError {
+impl fmt::Display for ErrorType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::ErrorType::*;
-        match self.error_type {
+        match self {
             UrlParseError(ref reason) => write!(f, "UrlParseError:{}", reason),
             DurationParseError(ref reason) => write!(f, "DurationParseError:{}", reason),
             OutputDirError(ref reason) => write!(f, "OutputDirError:{}", reason),
+            ConnectionError(ref reason) => write!(f, "ConnectionError:{}", reason)
         }
     }
 }
 
-impl ConfigError {
-    pub fn new(error_type: ErrorType) -> Self {
-        ConfigError { error_type }
-    }
-}
 
 impl AppConfig {
-    pub fn new(url: &str, duration: &str, output_dir: &str) -> Result<AppConfig, ConfigError> {
+    pub fn new(url: &str, duration: &str, output_dir: &str) -> Result<AppConfig, ErrorType> {
         let request_url = match Url::parse(url) {
-            Ok(mut u) => u,
-            Err(reason) => return Err(ConfigError::new(ErrorType::UrlParseError(reason)))
+            Ok(u) => u,
+            Err(reason) => return Err(ErrorType::UrlParseError(reason))
         };
         let duration = match duration.parse::<u64>() {
             Ok(duration_u64) => Duration::from_secs(duration_u64),
             Err(error) => {
-                return Err(ConfigError::new(ErrorType::DurationParseError(error)));
+                return Err(ErrorType::DurationParseError(error));
             }
         };
         let output_dir = PathBuf::from(output_dir);
@@ -66,30 +58,25 @@ impl AppConfig {
             match fs::create_dir(&output_dir) {
                 Ok(_) => (),
                 Err(error) => {
-                    return Err(ConfigError::new(ErrorType::OutputDirError(error)));
+                    return Err(ErrorType::OutputDirError(error));
                 }
             }
         }
-        AppConfig::test_connection(request_url.as_str());
-        Ok(AppConfig {
-            request_url,
-            output_dir,
-            duration,
-        })
+        match AppConfig::test_connection(request_url.as_str()) {
+            Ok(_) => Ok(AppConfig {
+                request_url,
+                output_dir,
+                duration,
+            }),
+            Err(error) => Err(ErrorType::ConnectionError(error))
+        }
     }
 
-    fn test_connection(request_url: &str) {
-        let response = Client::builder()
+    fn test_connection(request_url: &str) -> Result<Response, reqwest::Error> {
+        Client::builder()
             .timeout(Duration::from_secs(3))
             .build()
             .unwrap()
-            .get(request_url).send();
-        match response {
-            Ok(_) => info!("Connection Test Passed"),
-            Err(error) => {
-                error!("Connection Test Failed:/n{}", error);
-                exit(exitcode::DATAERR);
-            }
-        }
+            .get(request_url).send()
     }
 }

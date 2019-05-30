@@ -1,17 +1,15 @@
 use std::process::exit;
 
 use clap::{App, Arg};
-use log::{error, info, LevelFilter};
+use log::{error, LevelFilter};
 use simplelog::{CombinedLogger, Config, TermLogger};
 
 use rawcover_collector::AppConfig;
-use rawcover_collector::collector::Requestor;
 
 fn main() {
     init_log();
-    let app_config = build_config();
-    let requestor = Requestor {};
-    info!("{:?}", requestor.request(app_config.request_url.as_str()));
+    // on building
+    let _app_config = build_config();
 }
 
 fn init_log() {
@@ -39,7 +37,7 @@ fn build_config() -> AppConfig {
             .default_value(".")
             .help("Output dir,default '.'"))
         .arg(Arg::with_name("duration")
-            .short("du")
+            .short("d")
             .long("duration")
             .takes_value(true)
             .default_value("30")

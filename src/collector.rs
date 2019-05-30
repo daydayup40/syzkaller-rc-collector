@@ -1,175 +1,71 @@
-use std::time::Duration;
-
-use log::error;
+use chrono::Local;
 use reqwest::{Client, Response};
 use select::document::Document;
-use select::predicate::{Attr, Class, Element, Name, Predicate};
+use select::predicate::{Name, Predicate};
+use std::fmt::{Display, Formatter};
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::Path;
+use std::time::Duration;
+
+pub enum RequestorParseError {
+    RequestError(reqwest::Error),
+    DataParseError(std::io::Error),
+}
+
+impl Display for RequestorParseError {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            RequestorParseError::RequestError(ref reqwest_eeor) =>
+                write!(f, "RequestError:{}", reqwest_eeor),
+            RequestorParseError::DataParseError(ref io_error) =>
+                write!(f, "DataParseError:{}", io_error),
+        }
+    }
+}
+
+impl From<reqwest::Error> for RequestorParseError {
+    fn from(reqwest_error: reqwest::Error) -> Self {
+        RequestorParseError::RequestError(reqwest_error)
+    }
+}
+
+impl From<std::io::Error> for RequestorParseError {
+    fn from(io_error: std::io::Error) -> Self {
+        RequestorParseError::DataParseError(io_error)
+    }
+}
+
+pub fn request_and_parse(request_url: &str, time_out: Duration) -> Result<String, RequestorParseError> {
+    let response = Client::builder()
+        .timeout(time_out)
+        .build().unwrap()
+        .get(request_url)
+        .send()?;
+    parse(response).map_err(|err| err.into())
+}
+
+fn parse(response: Response) -> Result<String, std::io::Error> {
+    let document = Document::from_read(response)?;
+    let node = document.find(Name("table")
+        .descendant(Name("p")))
+        .take(1).next().unwrap().text();
+    Some(node);
+    unimplemented!()
+}
+
+
+pub fn persistence_on_time(data: &str, path: &Path) -> Result<(), std::io::Error> {
+    let now = Local::now().format("%Y-%m-%d][%H:%M:%S").to_string();
+    let file_path = path.join(Path::new(&now));
+    let f = File::create(file_path.as_path())?;
+    BufWriter::new(f).write_all(data.as_bytes())
+}
 
 pub struct Collector {}
 
-pub struct Requestor {}
-
-impl Requestor {
-    pub fn request(&self, request_url: &str) -> Option<String> {
-        let mut request_result = Client::builder()
-            .timeout(Duration::from_secs(3))
-            .build().unwrap()
-            .get(request_url).send();
-        match request_result {
-            Ok(mut response) => {
-                self.parse(response)
-            }
-            Err(error) => {
-                error!("{}", error);
-                None
-            }
-        }
-    }
-    fn parse(&self, response: Response) -> Option<String> {
-        let document = Document::from_read(response).unwrap();
-        let node = document.find(Name("table")
-            .descendant(Name("p")))
-            .take(1).next().unwrap().text();
-        Some(node);
+impl Collector {
+    pub fn run(&self) {
         unimplemented!()
     }
 }
-//
-//impl Collector {
-//    pub fn collect(request_url:&str,duration :Duration) {
-//        loop {
-//            sleep(duration);
-//            match request_builder(request_url).send() {
-//                Ok(response) => {
-//                    if response.status() == StatusCode::OK {
-//                        info!("ID:{:?} Got Data from syzkaller", std::thread::current().id());
-//                        match tx.send(Some(response)) {
-//                            Ok(_) => (),
-//                            Err(_) => {
-//                                warn!("ID:{:?} Sending data to persistence task failed,assume persistence thread closed", std::thread::current().id());
-//                                return;
-//                            }   // assume persistence thread closed
-//                        }
-//                    } else {
-//                        tx.send(None);
-//                        warn!("ID:{:?} Error response code,waiting for persistence task finished", std::thread::current().id());
-//                        persistence_thread.join();
-//                        return;
-//                    }
-//                }
-//                Err(error) => {
-//                    eprintln!("ID:{:?} Error while sending request:\n{}", std::thread::current().id(), error);
-//                    tx.send(None);
-//                    persistence_thread.join();
-//                    return;
-//                }
-//            }
-//        }
-//    }
-//
-//}
-//
-//struct Persistence {
-//    thread_handler: JoinHandle<()>
-//}
-//
-//impl Persistence {
-//    pub fn run(&mut self) {
-//        self.thread_handler = spawn(move || {
-//            info!("ID:{:?} Persistence Task start", std::thread::current().id());
-//            let mut last_time = Instant::now();
-//            loop {
-//                match rx.recv() {
-//                    Ok(msg) =>
-//                        match msg {
-//                            Some(response) => {
-//                                info!("ID:{:?} Got data,{}", std::thread::current().id(), response.status());
-//                            }
-//                            None => {
-//                                info!("ID:{:?} Persistence task finished.Data saved ok", std::thread::current().id());
-//                                return;
-//                            }
-//                        }
-//                    Err(_) => {
-//                        error!("ID:{:?} Error while getting msg from channel", std::thread::current().id());
-//                        exit(exitcode::SOFTWARE);
-//                    }
-//                }
-//            }
-//        });
-//    }
-//    pub fn wait(&self){
-//        self.thread_handler.join();
-//    }
-//}
-
-//
-//
-//fn start_request(request_url: &str, duration: Duration, output_dir: &str) {
-//    let (tx, rx) = mpsc::channel();
-//    let persistence_thread = start_persistence_task(rx);
-//    ctrlc::set_handler(move || {
-//        unimplemented!()
-//    });
-//    loop {
-//        sleep(duration);
-//        match request_builder(request_url).send() {
-//            Ok(response) => {
-//                if response.status() == StatusCode::OK {
-//                    info!("ID:{:?} Got Data from syzkaller", std::thread::current().id());
-//                    match tx.send(Some(response)) {
-//                        Ok(_) => (),
-//                        Err(_) => {
-//                            warn!("ID:{:?} Sending data to persistence task failed,assume persistence thread closed", std::thread::current().id());
-//                            return;
-//                        }   // assume persistence thread closed
-//                    }
-//                } else {
-//                    tx.send(None);
-//                    warn!("ID:{:?} Error response code,waiting for persistence task finished", std::thread::current().id());
-//                    persistence_thread.join();
-//                    return;
-//                }
-//            }
-//            Err(error) => {
-//                eprintln!("ID:{:?} Error while sending request:\n{}", std::thread::current().id(), error);
-//                tx.send(None);
-//                persistence_thread.join();
-//                return;
-//            }
-//        }
-//    }
-//}
-//
-//fn start_persistence_task(rx: Receiver<Option<Response>>) -> JoinHandle<()> {
-//    spawn(move || {
-//        info!("ID:{:?} Persistence Task start", std::thread::current().id());
-//        let mut last_time = Instant::now();
-//        loop {
-//            match rx.recv() {
-//                Ok(msg) =>
-//                    match msg {
-//                        Some(response) => {
-//                            info!("ID:{:?} Got data,{}", std::thread::current().id(), response.status());
-//                        }
-//                        None => {
-//                            info!("ID:{:?} Persistence task finished.Data saved ok", std::thread::current().id());
-//                            return;
-//                        }
-//                    }
-//                Err(_) => {
-//                    error!("ID:{:?} Error while getting msg from channel", std::thread::current().id());
-//                    exit(1);
-//                }
-//            }
-//        }
-//    })
-//}
-//
-//#[inline]
-//fn request_builder(request_url: &str) -> RequestBuilder {
-//    Client::builder()
-//        .timeout(Duration::from_secs(3))
-//        .build().unwrap()
-//        .get(request_url)
-//}
