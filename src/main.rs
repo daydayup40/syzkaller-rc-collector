@@ -1,15 +1,34 @@
 use std::process::exit;
 
 use clap::{App, Arg};
-use log::{error, LevelFilter};
+use log::{error, LevelFilter, warn};
 use simplelog::{CombinedLogger, Config, TermLogger};
 
-use rawcover_collector::AppConfig;
+use rawcover_collector::{ArgumentsParseError, Collector};
 
 fn main() {
     init_log();
-    // on building
-    let _app_config = build_config();
+
+    let syzkaller_rc_collector = match build_config() {
+        Ok(app_config) => app_config,
+        Err(error) => {
+            error!("Error happened while parsing input data:\n{}", error);
+            exit(exitcode::DATAERR)
+        }
+    };
+
+    ctrlc::set_handler(move || {
+        warn!("Raw cover data may be lost");
+        exit(exitcode::OK);
+    }).unwrap_or_else(|error| {
+        error!("{}", error);
+        exit(exitcode::SOFTWARE);
+    });
+
+    syzkaller_rc_collector.run().unwrap_or_else(|error| {
+        error!("Error happened while collecting raw cover:\n{}", &error);
+        exit(1); // just indicating program exit failed
+    });
 }
 
 fn init_log() {
@@ -20,7 +39,7 @@ fn init_log() {
     ).unwrap();
 }
 
-fn build_config() -> AppConfig {
+fn build_config() -> Result<Collector, ArgumentsParseError> {
     let matches = App::new("RC-Collector")
         .version("0.1.0")
         .author("Sam")
@@ -40,17 +59,11 @@ fn build_config() -> AppConfig {
             .short("d")
             .long("duration")
             .takes_value(true)
-            .default_value("30")
+            .default_value("10")
             .help("Raw cover collecting duration / minute"))
         .get_matches();
     let url = matches.value_of("url").unwrap();// safe here
     let output_dir = matches.value_of("output_dir").unwrap();
     let duration = matches.value_of("duration").unwrap();
-    match AppConfig::new(url, duration, output_dir) {
-        Ok(app_config) => app_config,
-        Err(error) => {
-            error!("{}", error);
-            exit(exitcode::CONFIG)
-        }
-    }
+    Collector::new(url, duration, output_dir)
 }
