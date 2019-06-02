@@ -1,44 +1,44 @@
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::io::{BufWriter, Read, Write};
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use chrono::Local;
 use reqwest::{Client, Response};
-use select::document::Document;
-use select::predicate::{Name, Predicate};
 use url::Url;
 
-pub enum RequestorParseError {
+pub enum RequestParseError {
     RequestError(reqwest::Error),
-    DataParseError(std::io::Error),
+    DocumentReadError(std::io::Error),
+    DataParseError,
 }
 
-impl Display for RequestorParseError {
+impl Display for RequestParseError {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            RequestorParseError::RequestError(ref reqwest_eeor) =>
+            RequestParseError::RequestError(ref reqwest_eeor) =>
                 write!(f, "RequestError:{}", reqwest_eeor),
-            RequestorParseError::DataParseError(ref io_error) =>
+            RequestParseError::DocumentReadError(ref io_error) =>
                 write!(f, "DataParseError:{}", io_error),
+            RequestParseError::DataParseError => write!(f, "DataParseError")
         }
     }
 }
 
-impl From<reqwest::Error> for RequestorParseError {
+impl From<reqwest::Error> for RequestParseError {
     fn from(reqwest_error: reqwest::Error) -> Self {
-        RequestorParseError::RequestError(reqwest_error)
+        RequestParseError::RequestError(reqwest_error)
     }
 }
 
-impl From<std::io::Error> for RequestorParseError {
+impl From<std::io::Error> for RequestParseError {
     fn from(io_error: std::io::Error) -> Self {
-        RequestorParseError::DataParseError(io_error)
+        RequestParseError::DocumentReadError(io_error)
     }
 }
 
-pub fn request_and_parse(request_url: &Url, time_out: Duration) -> Result<String, RequestorParseError> {
+pub fn request_and_parse(request_url: &Url, time_out: Duration) -> Result<String, RequestParseError> {
     let mut response = Client::builder()
         .timeout(time_out)
         .build().expect("unexpected exception happened, contact to sam")
@@ -47,14 +47,14 @@ pub fn request_and_parse(request_url: &Url, time_out: Duration) -> Result<String
     parse(&mut response).map_err(|err| err.into())
 }
 
-fn parse(response: &mut Response) -> Result<String, std::io::Error> {
-//    let document = Document::from_read(response)?;
-//    let node = document.find(Name("table")
-//        .descendant(Name("p")))
-//        .take(1).next().unwrap().text();
-//    Some(node);
-//    unimplemented!()
-    Ok(response.text().unwrap())
+fn parse(response: &mut Response) -> Result<String, RequestParseError> {
+//    let document = Document::from_read(response)
+//        .map_err(|error| RequestParseError::DocumentReadError(error))?;
+//
+//    let node = document.find(Name("pre"))
+//        .next()
+//        .ok_or(RequestParseError::DataParseError)?;
+    response.text().map_err(|error| RequestParseError::RequestError(error))
 }
 
 #[inline]

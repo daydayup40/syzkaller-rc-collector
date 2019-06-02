@@ -1,10 +1,15 @@
+#[macro_use]
+extern crate log;
+
 use std::process::exit;
 
 use clap::{App, Arg};
-use log::{error, LevelFilter, warn};
-use simplelog::{CombinedLogger, Config, TermLogger};
+use log::{error, warn};
+use simplelog::{CombinedLogger, Config, TermLogger, LevelFilter};
 
 use rawcover_collector::{ArgumentsParseError, Collector};
+
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     init_log();
@@ -40,27 +45,28 @@ fn init_log() {
 }
 
 fn build_config() -> Result<Collector, ArgumentsParseError> {
-    let matches = App::new("RC-Collector")
-        .version("0.1.0")
+    let matches = App::new("rawcover-collector")
+        .version(VERSION)
         .author("Sam")
         .about("Syzkaller raw cover collector via http request.")
         .arg(Arg::with_name("url")
             .short("u")
             .long("url")
             .takes_value(true).required(true)
-            .help("url  of Syzkaller http server"))
+            .default_value("http://127.0.0.1:56741/rawcover")
+            .help("url of Syzkaller http server"))
         .arg(Arg::with_name("output_dir")
             .short("o")
             .long("output_dir")
             .takes_value(true)
             .default_value(".")
-            .help("Output dir,default '.'"))
+            .help("Output dir for raw cover data"))
         .arg(Arg::with_name("duration")
             .short("d")
             .long("duration")
             .takes_value(true)
-            .default_value("10")
-            .help("Raw cover collecting duration / minute"))
+            .default_value("15")
+            .help("Raw cover collecting duration / second"))
         .get_matches();
     let url = matches.value_of("url").unwrap();// safe here
     let output_dir = matches.value_of("output_dir").unwrap();

@@ -1,6 +1,6 @@
 [package]
 name = "rawcover_collector"
-version = "0.0.1"
+version = "1.0.0"
 authors = ["samhaosss <sunhaoyl@outlook.com>"]
 edition = "2018"
 

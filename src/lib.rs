@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
@@ -9,7 +12,7 @@ use log::info;
 use url::ParseError;
 use url::Url;
 
-use self::util::{persist_on_time, request_and_parse, RequestorParseError};
+use self::util::{persist_on_time, request_and_parse, RequestParseError};
 
 mod util;
 
@@ -53,12 +56,12 @@ impl Collector {
 
 
 pub enum Error {
-    RequestOrParseError(RequestorParseError),
+    RequestOrParseError(RequestParseError),
     IOError(std::io::Error),
 }
 
-impl From<RequestorParseError> for Error {
-    fn from(error: RequestorParseError) -> Self {
+impl From<RequestParseError> for Error {
+    fn from(error: RequestParseError) -> Self {
         Error::RequestOrParseError(error)
     }
 }
